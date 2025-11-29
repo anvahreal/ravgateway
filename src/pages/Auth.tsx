@@ -44,6 +44,7 @@ const Auth = () => {
     return () => subscription.unsubscribe();
   }, [navigate]);
 
+  /*
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
     try {
@@ -69,7 +70,7 @@ const Auth = () => {
       });
       setGoogleLoading(false);
     }
-  };
+  }; */
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -154,7 +155,7 @@ const Auth = () => {
             </TabsList>
             
             <TabsContent value="login">
-              {/* Google Sign-In Button */}
+              {/* Google Sign-In Button 
               <div className="mt-4 mb-4">
                 <Button
                   type="button"
@@ -206,7 +207,7 @@ const Auth = () => {
                     Or continue with email
                   </span>
                 </div>
-              </div>
+              </div> */}
 
               <form onSubmit={handleSubmit} className="space-y-4 ">
                 <div className="space-y-2">
@@ -238,7 +239,7 @@ const Auth = () => {
             </TabsContent>
 
             <TabsContent value="signup">
-              {/* Google Sign-Up Button */}
+              {/* Google Sign-Up Button 
               <div className="mt-4 mb-4">
                 <Button
                   type="button"
@@ -279,7 +280,7 @@ const Auth = () => {
                     </>
                   )}
                 </Button>
-              </div>
+              </div> */}
 
               <div className="relative mb-4">
                 <div className="absolute inset-0 flex items-center">
@@ -287,7 +288,7 @@ const Auth = () => {
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
                   <span className="bg-background px-2 text-muted-foreground">
-                    Or continue with email
+                    continue with email
                   </span>
                 </div>
               </div>
