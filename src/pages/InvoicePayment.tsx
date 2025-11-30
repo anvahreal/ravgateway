@@ -201,64 +201,90 @@ const InvoicePayment = () => {
   };
 
   const handlePayment = async () => {
-    if (!invoice || !merchant || !walletAddress) return;
+  if (!invoice || !merchant || !walletAddress) return;
 
-    setPaying(true);
+  setPaying(true);
 
+  try {
+    const provider = new ethers.BrowserProvider(walletProvider);
+    const signer = await provider.getSigner();
+
+    const network = NETWORKS[selectedNetwork];
+    const tokenAmount = ethers.parseUnits(
+      invoice.amount.toFixed(network.stablecoin.decimals),
+      network.stablecoin.decimals
+    );
+
+    const tx = await signer.sendTransaction({
+      to: merchant.wallet_address,
+      value: tokenAmount,
+    });
+
+    toast({
+      title: "Transaction sent",
+      description: "Waiting for confirmation...",
+    });
+
+    const receipt = await tx.wait();
+
+    if (!receipt) throw new Error("Transaction failed");
+
+    const paidAt = new Date().toISOString();
+
+    // Update invoice status
+    await supabase
+      .from("invoices")
+      .update({ 
+        status: "paid",
+        paid_at: paidAt,
+        tx_hash: receipt.hash,
+        network: selectedNetwork
+      })
+      .eq("id", invoiceId);
+
+    // Send payment confirmation emails
     try {
-      const provider = new ethers.BrowserProvider(walletProvider);
-      const signer = await provider.getSigner();
-
-      const network = NETWORKS[selectedNetwork];
-      const tokenAmount = ethers.parseUnits(
-        invoice.amount.toFixed(network.stablecoin.decimals),
-        network.stablecoin.decimals
-      );
-
-      const tx = await signer.sendTransaction({
-        to: merchant.wallet_address,
-        value: tokenAmount,
-      });
-
-      toast({
-        title: "Transaction sent",
-        description: "Waiting for confirmation...",
-      });
-
-      const receipt = await tx.wait();
-
-      if (!receipt) throw new Error("Transaction failed");
-
-      // Update invoice status
-      await supabase
-        .from("invoices")
-        .update({ 
-          status: "paid",
-          paid_at: new Date().toISOString(),
-          tx_hash: receipt.hash,
-          network: selectedNetwork
-        })
-        .eq("id", invoiceId);
-
-      navigate("/success", {
-        state: {
+      await supabase.functions.invoke("send-invoice-email", {
+        body: {
+          invoiceNumber: invoice.invoice_number,
+          clientName: invoice.client_name,
+          clientEmail: invoice.client_email,
+          merchantName: merchant.merchant_name,
+          merchantEmail: merchant.email,
           amount: invoice.amount,
-          reference: invoice.invoice_number,
+          dueDate: invoice.due_date,
+          description: invoice.description,
+          paymentLink: `${window.location.origin}/invoice/${invoiceId}`,
+          status: "paid",
           txHash: receipt.hash,
           network: selectedNetwork,
+          paidAt: paidAt,
         },
       });
-
-    } catch (error: any) {
-      toast({
-        title: "Payment failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setPaying(false);
+    } catch (emailError) {
+      console.error("Email notification failed:", emailError);
+      // Don't fail the payment if email fails
     }
-  };
+
+    navigate("/success", {
+      state: {
+        amount: invoice.amount,
+        reference: invoice.invoice_number,
+        txHash: receipt.hash,
+        network: selectedNetwork,
+      },
+    });
+
+  } catch (error: any) {
+    toast({
+      title: "Payment failed",
+      description: error.message,
+      variant: "destructive",
+    });
+  } finally {
+    setPaying(false);
+  }
+};
 
   if (loading) {
     return (

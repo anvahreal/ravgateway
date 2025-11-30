@@ -57,7 +57,7 @@ const Navbar = () => {
                 Products
               </Link>
               <Link to="/invoices" className="text-foreground hover:text-primary transition-colors flex items-center gap-1">
-                <FileText className="w-4 h-4" />
+                {/*<FileText className="w-4 h-4" />*/}
                 Invoices
               </Link>
               <Link to="/payment" className="text-foreground hover:text-primary transition-colors">
