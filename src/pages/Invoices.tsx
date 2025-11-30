@@ -290,7 +290,7 @@ const Invoices = () => {
                     id="description"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Services rendered, products delivered, etc."
+                    placeholder="Description of what was delivered or handled."
                     rows={3}
                     className="resize-none"
                   />
