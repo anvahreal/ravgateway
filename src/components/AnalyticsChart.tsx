@@ -31,10 +31,10 @@ const AnalyticsChart = ({ data }: AnalyticsChartProps) => {
               </div>
               <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
                 <div
-                  className="bg-primary h-full rounded-full transition-all duration-1000 ease-out hover:bg-primary/80"
+                  className="bg-primary h-full rounded-full transition-all duration-600 ease-out hover:bg-primary/80"
                   style={{ 
                     width: `${percentage}%`,
-                    transitionDelay: `${700 + index * 100}ms`
+                    transitionDelay: `${300 + index * 50}ms`
                   }}
                 />
               </div>

@@ -43,9 +43,9 @@ const Dashboard = () => {
   useEffect(() => {
     if (!loading) {
       setCardsVisible(true);
-      animateValue(0, totalInflow, 1500, setAnimatedInflow);
-      animateValue(0, monthlyRevenue, 1500, setAnimatedMonthly);
-      animateValue(0, weeklyTotal, 1500, setAnimatedWeekly);
+      animateValue(0, totalInflow, 800, setAnimatedInflow);
+      animateValue(0, monthlyRevenue, 800, setAnimatedMonthly);
+      animateValue(0, weeklyTotal, 800, setAnimatedWeekly);
     }
   }, [loading, totalInflow, monthlyRevenue, weeklyTotal]);
 
@@ -238,7 +238,7 @@ const Dashboard = () => {
         {/* Metrics Grid - Animated */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
           {/* Total Inflow */}
-          <Card className={`p-6 transition-all duration-700 hover:shadow-lg hover:-translate-y-1 ${
+          <Card className={`p-6 transition-all duration-400 hover:shadow-lg hover:-translate-y-1 ${
             cardsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
           }`}>
             <div className="flex items-start justify-between mb-2">
@@ -256,7 +256,7 @@ const Dashboard = () => {
           </Card>
 
           {/* Monthly Revenue */}
-          <Card className={`p-6 transition-all duration-700 delay-100 hover:shadow-lg hover:-translate-y-1 ${
+          <Card className={`p-6 transition-all duration-400 delay-50 hover:shadow-lg hover:-translate-y-1 ${
             cardsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
           }`}>
             <div className="flex items-start justify-between mb-2">
@@ -274,7 +274,7 @@ const Dashboard = () => {
           </Card>
 
           {/* Pending Invoices */}
-          <Card className={`p-6 transition-all duration-700 delay-200 hover:shadow-lg hover:-translate-y-1 cursor-pointer ${
+          <Card className={`p-6 transition-all duration-400 delay-100 hover:shadow-lg hover:-translate-y-1 cursor-pointer ${
             cardsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
           }`}
           onClick={() => navigate("/invoices")}>
@@ -295,7 +295,7 @@ const Dashboard = () => {
           </Card>
 
           {/* Total Clients */}
-          <Card className={`p-6 transition-all duration-700 delay-300 hover:shadow-lg hover:-translate-y-1 ${
+          <Card className={`p-6 transition-all duration-400 delay-150 hover:shadow-lg hover:-translate-y-1 ${
             cardsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
           }`}>
             <div className="flex items-start justify-between mb-2">
@@ -316,7 +316,7 @@ const Dashboard = () => {
         {/* Weekly Stats + Invoice Status */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
           {/* Weekly Performance */}
-          <Card className={`p-6 lg:col-span-2 bg-gradient-to-br from-primary to-primary/80 text-primary-foreground transition-all duration-700 delay-400 ${
+          <Card className={`p-6 lg:col-span-2 bg-gradient-to-br from-primary to-primary/80 text-primary-foreground transition-all duration-400 delay-200 ${
             cardsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
           }`}>
             <div className="flex items-start justify-between mb-4">
@@ -350,7 +350,7 @@ const Dashboard = () => {
           </Card>
 
           {/* Invoice Status Breakdown */}
-          <Card className={`p-6 transition-all duration-700 delay-500 ${
+          <Card className={`p-6 transition-all duration-400 delay-250 ${
             cardsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
           }`}>
             <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
@@ -383,10 +383,10 @@ const Dashboard = () => {
                   </div>
                   <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
                     <div
-                      className="bg-green-500 h-full rounded-full transition-all duration-1000 ease-out"
+                      className="bg-green-500 h-full rounded-full transition-all duration-600 ease-out"
                       style={{ 
                         width: `${(paidInvoices.length / invoices.length) * 100}%`,
-                        transitionDelay: '600ms'
+                        transitionDelay: '300ms'
                       }}
                     />
                   </div>
@@ -399,14 +399,14 @@ const Dashboard = () => {
         {/* Chart + Top Clients */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
           {/* Daily Revenue Chart */}
-          <div className={`lg:col-span-2 transition-all duration-700 delay-600 ${
+          <div className={`lg:col-span-2 transition-all duration-400 delay-300 ${
             cardsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
           }`}>
             <AnalyticsChart data={chartData} />
           </div>
 
           {/* Top Clients */}
-          <Card className={`p-6 transition-all duration-700 delay-700 ${
+          <Card className={`p-6 transition-all duration-400 delay-350 ${
             cardsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
           }`}>
             <h3 className="text-lg font-semibold mb-4">Top Clients</h3>
@@ -425,7 +425,7 @@ const Dashboard = () => {
                   <div 
                     key={name} 
                     className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-all duration-300 hover:scale-105"
-                    style={{ transitionDelay: `${800 + idx * 100}ms` }}
+                    style={{ transitionDelay: `${400 + idx * 50}ms` }}
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 bg-primary/20 rounded-full flex items-center justify-center">
@@ -447,7 +447,7 @@ const Dashboard = () => {
         </div>
 
         {/* Transactions */}
-        <div className={`transition-all duration-700 delay-800 ${
+        <div className={`transition-all duration-400 delay-400 ${
           cardsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
         }`}>
           <TransactionList transactions={transactions} />
