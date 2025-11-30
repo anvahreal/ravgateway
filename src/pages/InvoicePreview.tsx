@@ -202,7 +202,8 @@ const InvoicePreview = () => {
               <div className="mb-3">
                 <span className="text-sm text-muted-foreground">Issue Date: </span>
                 <span className="font-semibold">
-                  {new Date(invoice.created_at).toLocaleDateString()}
+                  {new Date(invoice.created_at).toLocaleDateString()} at{" "}
+                  {new Date(invoice.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>
               <div className="mb-3">
@@ -215,7 +216,8 @@ const InvoicePreview = () => {
                 <div>
                   <span className="text-sm text-muted-foreground">Paid Date: </span>
                   <span className="font-semibold text-green-600">
-                    {new Date(invoice.paid_at).toLocaleDateString()}
+                    {new Date(invoice.paid_at).toLocaleDateString()} at{" "}
+                    {new Date(invoice.paid_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
               )}

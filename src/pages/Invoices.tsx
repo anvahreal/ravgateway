@@ -17,8 +17,7 @@ import {
   Clock,
   Loader2,
   Copy,
-  ExternalLink,
-  Mail
+  ExternalLink
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -50,8 +49,6 @@ const Invoices = () => {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [merchantEmail, setMerchantEmail] = useState("");
-  const [merchantName, setMerchantName] = useState("");
 
   // Form state
   const [clientName, setClientName] = useState("");
@@ -69,18 +66,6 @@ const Invoices = () => {
     if (!session) {
       navigate("/auth");
       return;
-    }
-
-    // Get merchant info
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("email, merchant_name")
-      .eq("id", session.user.id)
-      .single();
-
-    if (profile) {
-      setMerchantEmail(profile.email || session.user.email || "");
-      setMerchantName(profile.merchant_name || "Merchant");
     }
 
     fetchInvoices();
@@ -113,7 +98,9 @@ const Invoices = () => {
       if (!session) throw new Error("Not authenticated");
 
       // Generate invoice number
-      const { data: invoiceNumber } = await supabase.rpc("generate_invoice_number");
+      const { data: invoiceNumber } = await supabase.rpc(
+        "generate_invoice_number"
+      );
 
       // Create invoice
       const { data, error } = await supabase
@@ -133,36 +120,10 @@ const Invoices = () => {
 
       if (error) throw error;
 
-      // Send email notification
-      const paymentLink = `${window.location.origin}/invoice/${data.id}`;
-      
-      try {
-        await supabase.functions.invoke("send-invoice-email", {
-          body: {
-            invoiceNumber: invoiceNumber,
-            clientName: clientName,
-            clientEmail: clientEmail,
-            merchantName: merchantName,
-            merchantEmail: merchantEmail,
-            amount: parseFloat(amount),
-            dueDate: dueDate,
-            description: description,
-            paymentLink: paymentLink,
-            status: "created",
-          },
-        });
-
-        toast({
-          title: "Invoice created & sent!",
-          description: `Invoice ${invoiceNumber} created and email sent to ${clientEmail}`,
-        });
-      } catch (emailError) {
-        console.error("Email error:", emailError);
-        toast({
-          title: "Invoice created",
-          description: `Invoice ${invoiceNumber} created, but email failed to send`,
-        });
-      }
+      toast({
+        title: "Invoice created!",
+        description: `Invoice ${invoiceNumber} has been created.`,
+      });
 
       // Reset form
       setClientName("");
@@ -185,37 +146,19 @@ const Invoices = () => {
     }
   };
 
-  const sendInvoice = async (invoice: Invoice) => {
+  const sendInvoice = async (invoiceId: string, invoiceNumber: string) => {
     try {
       // Update status to sent
       const { error } = await supabase
         .from("invoices")
         .update({ status: "sent" })
-        .eq("id", invoice.id);
+        .eq("id", invoiceId);
 
       if (error) throw error;
 
-      // Send email
-      const paymentLink = `${window.location.origin}/invoice/${invoice.id}`;
-      
-      await supabase.functions.invoke("send-invoice-email", {
-        body: {
-          invoiceNumber: invoice.invoice_number,
-          clientName: invoice.client_name,
-          clientEmail: invoice.client_email,
-          merchantName: merchantName,
-          merchantEmail: merchantEmail,
-          amount: invoice.amount,
-          dueDate: invoice.due_date,
-          description: invoice.description,
-          paymentLink: paymentLink,
-          status: "created",
-        },
-      });
-
       toast({
         title: "Invoice sent!",
-        description: `Email sent to ${invoice.client_email}`,
+        description: `Invoice ${invoiceNumber} has been marked as sent.`,
       });
 
       fetchInvoices();
@@ -277,11 +220,12 @@ const Invoices = () => {
       <Navbar />
 
       <main className="container mx-auto px-4 py-6 sm:py-8 flex-1">
+        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 sm:mb-8">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">Invoices</h1>
             <p className="text-sm sm:text-base text-muted-foreground">
-              Create and manage invoices • Auto-send emails
+              Create and manage invoices for your clients
             </p>
           </div>
 
@@ -296,7 +240,7 @@ const Invoices = () => {
               <DialogHeader>
                 <DialogTitle className="text-lg sm:text-xl">Create New Invoice</DialogTitle>
                 <DialogDescription className="text-sm">
-                  Email will be sent automatically to client
+                  Fill in the details to create an invoice for your client
                 </DialogDescription>
               </DialogHeader>
 
@@ -380,10 +324,7 @@ const Invoices = () => {
                         Creating...
                       </>
                     ) : (
-                      <>
-                        <Mail className="w-4 h-4 mr-2" />
-                        Create & Send
-                      </>
+                      "Create Invoice"
                     )}
                   </Button>
                 </div>
@@ -392,6 +333,7 @@ const Invoices = () => {
           </Dialog>
         </div>
 
+        {/* Invoices List */}
         {invoices.length === 0 ? (
           <Card className="p-8 sm:p-12 text-center">
             <FileText className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 text-muted-foreground" />
@@ -409,6 +351,7 @@ const Invoices = () => {
             {invoices.map((invoice) => (
               <Card key={invoice.id} className="p-4 sm:p-6">
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                  {/* Left side - Invoice details */}
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
                       <h3 className="text-base sm:text-lg font-semibold truncate">
@@ -433,9 +376,15 @@ const Invoices = () => {
                         <strong className="text-foreground">Due:</strong>{" "}
                         {new Date(invoice.due_date).toLocaleDateString()}
                       </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        <strong className="text-foreground">Created:</strong>{" "}
+                        {new Date(invoice.created_at).toLocaleDateString()} at{" "}
+                        {new Date(invoice.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </p>
                     </div>
                   </div>
 
+                  {/* Right side - Amount and actions */}
                   <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-3 sm:gap-4">
                     <p className="text-xl sm:text-2xl font-bold text-primary">
                       ${invoice.amount.toFixed(2)}
@@ -449,30 +398,18 @@ const Invoices = () => {
                         className="h-9 text-xs sm:text-sm"
                       >
                         <Copy className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-                        <span className="hidden sm:inline">Copy</span>
+                        <span className="hidden sm:inline">Copy Link</span>
                       </Button>
                       {invoice.status === "draft" && (
                         <Button
                           size="sm"
-                          onClick={() => sendInvoice(invoice)}
+                          onClick={() => sendInvoice(invoice.id, invoice.invoice_number)}
                           className="h-9 text-xs sm:text-sm"
                         >
-                          <Mail className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                          <Send className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                           <span className="hidden sm:inline">Send</span>
                         </Button>
-                       )}
-
-                       {/*Preview button*/}
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        className="h-9 text-xs sm:text-sm"
-                        onClick={() => navigate(`/invoice-preview/${invoice.id}`)}
-                      >
-                        <Eye className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-                        <span className="hidden sm:inline">Preview</span>
-                      </Button>
-
+                      )}
                       <Button 
                         size="sm" 
                         variant="outline" 
