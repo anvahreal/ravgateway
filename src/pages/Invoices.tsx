@@ -17,7 +17,8 @@ import {
   Clock,
   Loader2,
   Copy,
-  ExternalLink
+  ExternalLink,
+  Bell
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -166,6 +167,81 @@ const Invoices = () => {
     } catch (error: any) {
       toast({
         title: "Error sending invoice",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const remindInvoice = async (invoiceId: string, invoiceNumber: string) => {
+    try {
+      // Get current invoice data
+      const { data: invoice, error: fetchError } = await supabase
+        .from("invoices")
+        .select("*, reminder_count, last_reminded_at")
+        .eq("id", invoiceId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Check if 3 reminders already sent
+      if (invoice.reminder_count >= 3) {
+        toast({
+          title: "Reminder limit reached",
+          description: "You can only send 3 reminders per invoice.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Check if reminded in last 24 hours
+      if (invoice.last_reminded_at) {
+        const lastReminded = new Date(invoice.last_reminded_at);
+        const now = new Date();
+        const hoursSinceLastReminder = (now.getTime() - lastReminded.getTime()) / (1000 * 60 * 60);
+
+        if (hoursSinceLastReminder < 24) {
+          const hoursLeft = Math.ceil(24 - hoursSinceLastReminder);
+          toast({
+            title: "Too soon to remind",
+            description: `Please wait ${hoursLeft} more hour(s) before sending another reminder.`,
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
+      // Update reminder tracking
+      const { error: updateError } = await supabase
+        .from("invoices")
+        .update({ 
+          reminder_count: (invoice.reminder_count || 0) + 1,
+          last_reminded_at: new Date().toISOString()
+        })
+        .eq("id", invoiceId);
+
+      if (updateError) throw updateError;
+
+      // Send reminder email via Edge Function
+      const { error: emailError } = await supabase.functions.invoke("send-invoice-reminder", {
+        body: { invoiceId }
+      });
+
+      if (emailError) {
+        console.error("Email send error:", emailError);
+        // Don't fail the whole operation if email fails
+      }
+
+      const remainingReminders = 3 - ((invoice.reminder_count || 0) + 1);
+      toast({
+        title: "Reminder sent!",
+        description: `Reminder for invoice ${invoiceNumber} has been sent. (${remainingReminders} reminder${remainingReminders !== 1 ? 's' : ''} left)`,
+      });
+
+      fetchInvoices();
+    } catch (error: any) {
+      toast({
+        title: "Error sending reminder",
         description: error.message,
         variant: "destructive",
       });
@@ -411,15 +487,17 @@ const Invoices = () => {
                           <span className="hidden sm:inline">Send</span>
                         </Button>
                       )}
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        className="h-9 text-xs sm:text-sm"
-                       onClick={() => navigate(`/invoice-preview/${invoice.id}`)}
-                      >
-                        <Eye className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-                        <span className="hidden sm:inline">Preview</span>
-                      </Button>
+                      {(invoice.status === "sent" || invoice.status === "viewed" || invoice.status === "overdue") && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => remindInvoice(invoice.id, invoice.invoice_number)}
+                          className="h-9 text-xs sm:text-sm"
+                        >
+                          <Bell className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                          <span className="hidden sm:inline">Remind</span>
+                        </Button>
+                      )}
                       <Button 
                         size="sm" 
                         variant="outline" 
