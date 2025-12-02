@@ -27,7 +27,7 @@ interface MerchantProfile {
   email: string;
   merchant_name: string;
 }
-// Network configuration with stablecoin support - MAINET
+// Network configuration with stablecoin support - MAINNET
 const NETWORKS = {
   celo: {
     name: "Celo Mainnet",
@@ -59,7 +59,7 @@ const ERC20_ABI = [
   "function transfer(address to, uint256 amount) returns (bool)",
   "function decimals() view returns (uint8)",
   "function symbol() view returns (string)",
-]
+];
 
 
 // Validation schema for payment inputs
@@ -234,36 +234,34 @@ const CustomerPayment = () => {
         provider = new ethers.BrowserProvider(window.ethereum);
         accounts = await provider.send("eth_requestAccounts", []);
       
-        // Switch to Celo network
-
-    try {
-      await provider.send("wallet_switchEthereumChain", [
-        { chainId: selectedNet.chainId },
-      ]);
-    } catch (switchError: any) {
-      if (switchError.code === 4902) {
-        await provider.send("wallet_addEthereumChain", [
-          {
-            chainId: selectedNet.chainId,
-            chainName: selectedNet.name,
-            nativeCurrency: {
-              name: selectedNet.stablecoin.symbol,
-              symbol: selectedNet.stablecoin.symbol,
-              decimals: selectedNet.stablecoin.decimals,
-            },
-            rpcUrls: [selectedNet.rpcUrl],
-            blockExplorerUrls: [selectedNet.explorer],
-          },
-        ]);
-      } else {
-        throw switchError;
-      }
-    }
+        // Switch to selected network
+        try {
+          await provider.send("wallet_switchEthereumChain", [
+            { chainId: selectedNet.chainId },
+          ]);
+        } catch (switchError: any) {
+          if (switchError.code === 4902) {
+            await provider.send("wallet_addEthereumChain", [
+              {
+                chainId: selectedNet.chainId,
+                chainName: selectedNet.name,
+                nativeCurrency: {
+                  name: selectedNet.stablecoin.symbol,
+                  symbol: selectedNet.stablecoin.symbol,
+                  decimals: selectedNet.stablecoin.decimals,
+                },
+                rpcUrls: [selectedNet.rpcUrl],
+                blockExplorerUrls: [selectedNet.explorer],
+              },
+            ]);
+          } else {
+            throw switchError;
+          }
+        }
 
         setWalletProvider(window.ethereum);
       }
 
-      
       setSelectedNetwork(network);
       setWalletAddress(accounts[0]);
       setShowNetworkSelect(false);
@@ -337,7 +335,7 @@ const CustomerPayment = () => {
         .from("profiles")
         .select("wallet_address, email, merchant_name")
         .eq("id", merchantId)
-        .maybeSingle() as { data: MerchantProfile | null };;
+        .maybeSingle() as { data: MerchantProfile | null };
 
       if (merchantProfile?.wallet_address !== merchantWalletAddress) {
         toast({
@@ -367,30 +365,55 @@ const CustomerPayment = () => {
       // Calculate amount in stablecoin (1:1 with USD)
       const totalAmount = product.price * quantity;
       const tokenAmount = ethers.parseUnits(
-        totalAmount.toFixed(stablecoin.decimals),
+        totalAmount.toString(),
         stablecoin.decimals
       );
-      // ✅ Check wallet balance before sending
-      const balance = await provider.getBalance(await signer.getAddress());
-        if (balance < totalAmount) {
-          throw new Error("Insufficient balance for payment.")};
 
-      // Send transaction on Celo blockchain with security checks
-      const tx = await signer.sendTransaction({
-        to: merchantWalletAddress,
-        value: tokenAmount,
+      console.log("Payment details:", {
+        amount: totalAmount,
+        tokenAmount: tokenAmount.toString(),
+        decimals: stablecoin.decimals,
+        token: stablecoin.symbol,
+        to: merchantWalletAddress
       });
 
+      // Check token balance before sending
+      const balance = await tokenContract.balanceOf(walletAddress);
+      console.log("Token balance:", ethers.formatUnits(balance, stablecoin.decimals));
+
+      if (balance < tokenAmount) {
+        toast({
+          title: "Insufficient balance",
+          description: `You need at least ${totalAmount} ${stablecoin.symbol} to complete this payment.`,
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
       toast({
-        title: "Transaction sent",
-        description: "Waiting for confirmation on the blockchain...",
+        title: "Confirm in wallet",
+        description: `Sending ${totalAmount} ${stablecoin.symbol}...`,
+      });
+
+      // Send ERC-20 token transfer
+      const tx = await tokenContract.transfer(
+        merchantWalletAddress,
+        tokenAmount
+      );
+
+      toast({
+        title: "Transaction submitted",
+        description: "Waiting for blockchain confirmation...",
       });
 
       const receipt = await tx.wait();
 
-      if (!receipt) {
-        throw new Error("Transaction failed");
+      if (!receipt || receipt.status === 0) {
+        throw new Error("Transaction failed on blockchain");
       }
+
+      console.log("Transaction successful:", receipt.hash);
 
       // Record transaction via edge function
       const { data, error } = await supabase.functions.invoke("record-payment", {
@@ -409,34 +432,34 @@ const CustomerPayment = () => {
 
       if (error) throw error;
 
-        // send receipt emails 
-        try {
-          console.log("Sending emails with data:",{
-            customerEmail: customerEmail,
+      // Send receipt emails 
+      try {
+        console.log("Sending emails with data:", {
+          customerEmail: customerEmail,
+          merchantEmail: merchantProfile?.email,
+        });
+
+        await supabase.functions.invoke("send-receipt-email", {
+          body: {
+            customerName: validationData.customerName,
+            customerEmail: customerEmail || undefined,
+            merchantName: merchantProfile?.merchant_name || merchantName,
             merchantEmail: merchantProfile?.email,
-          });
+            productName: product?.name || "Product",
+            quantity: quantity,
+            unitPrice: product?.price || 0,
+            totalAmount: totalAmount,
+            txHash: receipt.hash,
+            network: selectedNetwork,
+            referenceId: data.reference_id,
+            paymentDate: new Date().toLocaleString(),
+          },
+        });
 
-          await supabase.functions.invoke("send-receipt-email", {
-            body: {
-              customerName: validationData.customerName,
-              customerEmail: customerEmail || undefined,
-              merchantName: merchantProfile?.merchant_name || merchantName,
-              merchantEmail: merchantProfile?.email,
-              productName: product?.name || "Product",
-              quantity: quantity,
-              unitPrice: product?.price || 0,
-              totalAmount: totalAmount,
-              txHash: receipt.hash,
-              network: selectedNetwork,
-              referenceId: data.reference_id,
-              paymentDate: new Date().toLocaleString(),
-            },
-          });
-
-          console.log("Receipt emails sent successfully");
-        } catch (emailError) {
-          console.error("Failed to send receipt emails", emailError);
-        }
+        console.log("Receipt emails sent successfully");
+      } catch (emailError) {
+        console.error("Failed to send receipt emails", emailError);
+      }
 
       navigate("/success", {
         state: {
@@ -446,26 +469,33 @@ const CustomerPayment = () => {
           network: selectedNetwork,
         },
       });
-  } catch (error: any) {
-    console.error("Payment error:", error);
+    } catch (error: any) {
+      console.error("Payment error:", error);
 
-    if (error instanceof z.ZodError) {
-      toast({
-        title: "Validation error",
-        description: error.errors[0].message,
-        variant: "destructive",
-      });
-    } else {
-      toast({
-        title: "Payment failed",
-        description: error.message || "Something went wrong.",
-        variant: "destructive",
-      });
+      if (error instanceof z.ZodError) {
+        toast({
+          title: "Validation error",
+          description: error.errors[0].message,
+          variant: "destructive",
+        });
+      } else {
+        let errorMessage = "Something went wrong.";
+        
+        if (error.code === "ACTION_REJECTED" || error.code === 4001) {
+          errorMessage = "Transaction was rejected in wallet";
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+
+        toast({
+          title: "Payment failed",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setLoading(false);
     }
-  } finally {
-    setLoading(false);
-  }
-
   };
 
   if (loadingData) {
@@ -531,75 +561,73 @@ const CustomerPayment = () => {
 
                 <div className="grid gap-3">
                   <Button
-                      className="w-full h-12 sm:h-14 text-base sm:text-lg"
-                      onClick={() => setShowNetworkOptions(!showNetworkOptions)}
-                      disabled={isConnecting}
-                      variant="outline"
-                    >
-                      {isConnecting ? (
-                        <>
-                          <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                          Connecting...
-                        </>
-                      ) : (
-                        <>
-                          <Wallet className="w-5 h-5 mr-2" />
-                          Connect Wallet
-                        </>
-                      )}
-                    </Button>
+                    className="w-full h-12 sm:h-14 text-base sm:text-lg"
+                    onClick={() => setShowNetworkOptions(!showNetworkOptions)}
+                    disabled={isConnecting}
+                    variant="outline"
+                  >
+                    {isConnecting ? (
+                      <>
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        Connecting...
+                      </>
+                    ) : (
+                      <>
+                        <Wallet className="w-5 h-5 mr-2" />
+                        Connect Wallet
+                      </>
+                    )}
+                  </Button>
 
+                  {/* Network selection popup */}
+                  {showNetworkOptions && (
+                    <div className="border rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 shadow-md p-4 space-y-3 mt-2 transition-colors">
+                      <p className="text-sm font-medium text-center text-foreground">Select Network</p>
 
-                    {/*Network seection popup*/}
-                    {showNetworkOptions && (
-                      <div className="border rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 shadow-md p-4 space-y-3 mt-2 transition-colors">
-                        <p className="text-sm font-medium text-center text-foreground">Select Network</p>
-
-                        <button 
+                      <Button 
                         onClick={() => {
                           connectWallet(false, "base");
                           setShowNetworkOptions(false);
-                       }}
-                       disabled={isConnecting}
-                       className="w-full border rounded-md px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                       variant="outline"
-                        >
-                          {isConnecting ? "connecting..." : "Base (Metamask)"}
-                        </button>
+                        }}
+                        disabled={isConnecting}
+                        className="w-full"
+                        variant="outline"
+                      >
+                        {isConnecting ? "Connecting..." : "Base (MetaMask)"}
+                      </Button>
 
-                        <button 
+                      <Button 
                         onClick={() => {
                           connectWallet(false, "celo");
                           setShowNetworkOptions(false);
-                       }}
-                       disabled={isConnecting}
-                       className="w-full border rounded-md px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                       variant="outline"
-                        >
-                          {isConnecting ? "connecting..." : "Celo (Metamask)"}
-                        </button>
-                      </div>
+                        }}
+                        disabled={isConnecting}
+                        className="w-full"
+                        variant="outline"
+                      >
+                        {isConnecting ? "Connecting..." : "Celo (MetaMask)"}
+                      </Button>
+                    </div>
+                  )}
+                  
+                  <Button
+                    className="w-full h-12 sm:h-14 text-base sm:text-lg"
+                    onClick={() => connectWallet(true)}
+                    disabled={isConnecting}
+                    variant="outline"
+                  >
+                    {isConnecting ? (
+                      <>
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        Connecting...
+                      </>
+                    ) : (
+                      <>
+                        <Wallet className="w-5 h-5 mr-2" />
+                        WalletConnect (Mobile)
+                      </>
                     )}
-                    
-                    <Button
-                      className="w-full h-12 sm:h-14 text-base sm:text-lg"
-                      onClick={() => connectWallet(true)}
-                      disabled={isConnecting}
-                      variant="outline"
-                    >
-                      {isConnecting ? (
-                        <>
-                          <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                          Connecting...
-                        </>
-                      ) : (
-                        <>
-                          <Wallet className="w-5 h-5 mr-2" />
-                          WalletConnect (Mobile)
-                        </>
-                      )}
-                    </Button>
-                
+                  </Button>
                 </div>
                 <p className="text-xs text-muted-foreground text-center">
                   Connect your wallet to make secure blockchain payments
@@ -626,12 +654,12 @@ const CustomerPayment = () => {
                 <div>
                   <Label htmlFor="customerEmail" className="text-sm">Email (Optional - for receipt)</Label>                                   
                   <Input 
-                  type="email" 
-                  id="customerEmail" 
-                  value={customerEmail} 
-                  onChange={(e) => setCustomerEmail(e.target.value)}
-                  placeholder="Your@email.com"
-                  className="mt-2 h-11"
+                    type="email" 
+                    id="customerEmail" 
+                    value={customerEmail} 
+                    onChange={(e) => setCustomerEmail(e.target.value)}
+                    placeholder="your@email.com"
+                    className="mt-2 h-11"
                   />
                   <p className="text-xs text-muted-foreground mt-1">
                     Enter your email to receive a payment receipt
@@ -650,103 +678,103 @@ const CustomerPayment = () => {
                   />
                 </div>
 
-            {products.length > 0 ? (
-              <div>
-                <Label className="text-sm">Select Product/Service</Label>
-                <div className="grid gap-2 sm:gap-3 mt-2">
-                  {products.map((product) => (
-                    <Card
-                      key={product.id}
-                      className={`p-4 cursor-pointer transition-all touch-manipulation ${
-                        selectedProduct === product.id
-                          ? "border-primary bg-primary/5"
-                          : "hover:border-primary/50 active:scale-[0.98]"
-                      }`}
-                      onClick={() => {
-                        setSelectedProduct(product.id);
-                        setQuantity(1);
-                      }}
-                    >
-                      <div className="flex justify-between items-start gap-3">
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-sm sm:text-base font-semibold text-foreground">
-                            {product.name}
-                          </h3>
-                          {product.description && (
-                            <p className="text-xs sm:text-sm text-muted-foreground mt-1 line-clamp-2">
-                              {product.description}
-                            </p>
-                          )}
-                        </div>
-                        <span className="text-base sm:text-lg font-bold text-primary whitespace-nowrap">
-                          ${product.price.toFixed(2)}
+                {products.length > 0 ? (
+                  <div>
+                    <Label className="text-sm">Select Product/Service</Label>
+                    <div className="grid gap-2 sm:gap-3 mt-2">
+                      {products.map((product) => (
+                        <Card
+                          key={product.id}
+                          className={`p-4 cursor-pointer transition-all touch-manipulation ${
+                            selectedProduct === product.id
+                              ? "border-primary bg-primary/5"
+                              : "hover:border-primary/50 active:scale-[0.98]"
+                          }`}
+                          onClick={() => {
+                            setSelectedProduct(product.id);
+                            setQuantity(1);
+                          }}
+                        >
+                          <div className="flex justify-between items-start gap-3">
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-sm sm:text-base font-semibold text-foreground">
+                                {product.name}
+                              </h3>
+                              {product.description && (
+                                <p className="text-xs sm:text-sm text-muted-foreground mt-1 line-clamp-2">
+                                  {product.description}
+                                </p>
+                              )}
+                            </div>
+                            <span className="text-base sm:text-lg font-bold text-primary whitespace-nowrap">
+                              ${product.price.toFixed(2)}
+                            </span>
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">No products available</p>
+                  </div>
+                )}
+
+                {selectedProduct && (
+                  <div className="space-y-3">
+                    <Label className="text-sm">Quantity</Label>
+                    <div className="flex items-center gap-4">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                        disabled={quantity <= 1}
+                        className="h-12 w-12"
+                      >
+                        <Minus className="h-5 w-5" />
+                      </Button>
+                      <div className="flex-1 text-center">
+                        <span className="text-3xl font-bold text-foreground">{quantity}</span>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setQuantity(Math.min(1000, quantity + 1))}
+                        disabled={quantity >= 1000}
+                        className="h-12 w-12"
+                      >
+                        <Plus className="h-5 w-5" />
+                      </Button>
+                    </div>
+                    
+                    <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Unit Price:</span>
+                        <span className="font-medium text-foreground">
+                          ${products.find(p => p.id === selectedProduct)?.price.toFixed(2)}
                         </span>
                       </div>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">No products available</p>
-              </div>
-            )}
-
-            {selectedProduct && (
-              <div className="space-y-3">
-                <Label className="text-sm">Quantity</Label>
-                <div className="flex items-center gap-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    disabled={quantity <= 1}
-                    className="h-12 w-12"
-                  >
-                    <Minus className="h-5 w-5" />
-                  </Button>
-                  <div className="flex-1 text-center">
-                    <span className="text-3xl font-bold text-foreground">{quantity}</span>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Quantity:</span>
+                        <span className="font-medium text-foreground">{quantity}</span>
+                      </div>
+                      <div className="h-px bg-border my-2" />
+                      <div className="flex justify-between">
+                        <span className="font-semibold text-foreground">Total:</span>
+                        <span className="text-2xl font-bold text-primary">
+                          ${((products.find(p => p.id === selectedProduct)?.price || 0) * quantity).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setQuantity(Math.min(1000, quantity + 1))}
-                    disabled={quantity >= 1000}
-                    className="h-12 w-12"
-                  >
-                    <Plus className="h-5 w-5" />
-                  </Button>
-                </div>
-                
-                <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Unit Price:</span>
-                    <span className="font-medium text-foreground">
-                      ${products.find(p => p.id === selectedProduct)?.price.toFixed(2)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Quantity:</span>
-                    <span className="font-medium text-foreground">{quantity}</span>
-                  </div>
-                  <div className="h-px bg-border my-2" />
-                  <div className="flex justify-between">
-                    <span className="font-semibold text-foreground">Total:</span>
-                    <span className="text-2xl font-bold text-primary">
-                      ${((products.find(p => p.id === selectedProduct)?.price || 0) * quantity).toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
+                )}
 
                 <Button
                   className="w-full h-12 sm:h-14 text-base sm:text-lg touch-manipulation"
                   onClick={handlePayment}
-                  disabled={loading}
+                  disabled={loading || !selectedProduct || !customerName.trim()}
                 >
                   {loading ? (
                     <>
@@ -756,7 +784,7 @@ const CustomerPayment = () => {
                   ) : (
                     <>
                       <ShoppingCart className="w-5 h-5 mr-2" />
-                      Make payment
+                      Make Payment
                     </>
                   )}
                 </Button>
