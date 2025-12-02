@@ -35,23 +35,23 @@ interface MerchantProfile {
 // Network configuration
 const NETWORKS = {
   celo: {
-    name: "Celo Sepolia Testnet",
-    chainId: "11142220",
-    rpcUrl: "https://forno.celo-sepolia.celo-testnet.org",
-    explorer: "https://celo-sepolia.blockscout.com",
+    name: "Celo Mainnet",
+    chainId: "0xa4ec", // 42220 in decimal
+    rpcUrl: "https://forno.celo.org",
+    explorer: "https://explorer.celo.org",
     stablecoin: {
-      address: "0xEF4d55D6dE8e8d73232827Cd1e9b2F2dBb45bC80",
+      address: "0x765DE816845861e75A25fCA122bb6898B8B1282a", // cUSD on Celo Mainnet
       symbol: "cUSD",
       decimals: 18,
     },
   },
   base: {
-    name: "Base Sepolia Testnet",
-    chainId: "0x14A34",
-    rpcUrl: "https://sepolia.base.org",
-    explorer: "https://sepolia.basescan.org",
+    name: "Base Mainnet",
+    chainId: "0x2105", // 8453 in decimal
+    rpcUrl: "https://mainnet.base.org",
+    explorer: "https://basescan.org",
     stablecoin: {
-      address: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+      address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // USDC on Base Mainnet
       symbol: "USDC",
       decimals: 6,
     },

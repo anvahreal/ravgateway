@@ -63,7 +63,7 @@ const Payment = () => {
     if (!walletAddress.trim()) {
       toast({
         title: "Invalid wallet address",
-        description: "Please enter a valid Celo wallet address",
+        description: "Please enter a valid EVM wallet address",
         variant: "destructive",
       });
       return;

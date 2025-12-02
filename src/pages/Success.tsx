@@ -18,12 +18,13 @@ const Success = () => {
     setTimeout(() => setAnimate(true), 100);
   }, []);
 
+// MAINNET explorer links
 const explorerLinks = {
-  celo: "https://explorer.celo.org/alfajores/tx/", // Celo testnet
-  base: "https://sepolia.basescan.org/tx/",        // Base testnet
-  ethereum: "https://sepolia.etherscan.io/tx/",    // Ethereum testnet
-  polygon: "https://mumbai.polygonscan.com/tx/",   // Polygon testnet
-  avalanche: "https://testnet.snowtrace.io/tx/",   // Avalanche testnet
+  celo: "https://explorer.celo.org/mainnet/tx/",     // Celo mainnet
+  base: "https://basescan.org/tx/",                  // Base mainnet
+  ethereum: "https://etherscan.io/tx/",              // Ethereum mainnet
+  polygon: "https://polygonscan.com/tx/",            // Polygon mainnet
+  avalanche: "https://snowtrace.io/tx/",             // Avalanche mainnet
 };
 
 
