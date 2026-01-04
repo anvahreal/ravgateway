@@ -112,7 +112,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       description: description || null,
       amount,
       network,
-      status: 'pending',
+      status: 'sent',
       issue_date: issueDate.toISOString(),
       due_date: dueDate.toISOString(),
       reminder_count: 0,
