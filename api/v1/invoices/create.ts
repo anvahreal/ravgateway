@@ -76,7 +76,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     client_email, 
     items, 
     description,
-    network = 'Base',
+    network = 'base',
     due_days = 7 
   } = req.body;
 
